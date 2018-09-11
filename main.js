@@ -36,7 +36,7 @@ var app = http.createServer(function(request,response){
           if(error) {
             throw error; // 그다음 코드를 실행시키지 않고 에러를 중지시킴
           }
-          db.query(`SELECT * FROM topic WHERE id=?`,[queryData.id], function(error2, topic){ // []가 ?로 들어감
+          db.query(`SELECT * FROM topic LEFT JOIN author ON topic.author_id=author.id WHERE topic.id=?`,[queryData.id], function(error2, topic){ // []가 ?로 들어감
             if(error2){
               throw error2;
             }
@@ -110,25 +110,27 @@ var app = http.createServer(function(request,response){
           if(error2) {
             throw error2;
           }
-          var list = template.list(topics);
-          var html = template.HTML(topic[0].title, list,
-            `
-            <form action="/update_process" method="post">
-              <input type="hidden" name="id" value="${topic[0].id}">
-              <p><input type="text" name="title" placeholder="title" value="${topic[0].title}"></p>
-              <p>
-                <textarea name="description" placeholder="description">${topic[0].description}</textarea>
-              </p>
-
-              <p>
-                <input type="submit">
-              </p>
-            </form>
-            `,
-            `<a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>`
-          );
-          response.writeHead(200);
-          response.end(html);
+          db.query('SELECT * FROM author', function(error, authors) {
+            var list = template.list(topics);
+            var html = template.HTML(topic[0].title, list,
+              `
+              <form action="/update_process" method="post">
+                <input type="hidden" name="id" value="${topic[0].id}">
+                <p><input type="text" name="title" placeholder="title" value="${topic[0].title}"></p>
+                <p>
+                  <textarea name="description" placeholder="description">${topic[0].description}</textarea>
+                </p>
+                  ${template.authorSelect(authors, topic[0].author_id)}
+                <p>
+                  <input type="submit">
+                </p>
+              </form>
+              `,
+              `<a href="/create">create</a> <a href="/update?id=${topic[0].id}">update</a>`
+            );
+            response.writeHead(200);
+            response.end(html);
+          });
         });
       });
     } else if(pathname === '/update_process'){
@@ -138,7 +140,7 @@ var app = http.createServer(function(request,response){
       });
       request.on('end', function(){
           var post = qs.parse(body);
-          db.query('UPDATE topic SET title=?, description=?, author_id=1 WHERE id=?', [post.title, post.description, post.id], function(error, result){
+          db.query('UPDATE topic SET title=?, description=?, author_id=? WHERE id=?', [post.title, post.description, post.author, post.id], function(error, result){
             response.writeHead(302, {Location: `/?id=${post.id}`});
             response.end();
           });
